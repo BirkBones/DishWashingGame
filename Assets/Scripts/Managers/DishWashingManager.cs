@@ -12,6 +12,12 @@ public class DishWashingManager : MonoBehaviour
     DishManager dishes = new DishManager(amountOfDishes);
     // Visuals
     [SerializeField] private Slider progressBar;
+
+    public float MovingSpeedSoundBorder {get{
+        return brush.MovingSpeedSoundBorder; }
+        private set {
+            brush.MovingSpeedSoundBorder = value;
+        }}
     void Awake(){
         brush = GetComponent<BrushMovement>();
     }

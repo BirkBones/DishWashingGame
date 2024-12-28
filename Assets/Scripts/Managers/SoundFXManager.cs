@@ -25,8 +25,7 @@ public class SoundFXManager : MonoBehaviour
         }
     }
     void Update (){
-        Debug.Log(gameData.name);
-        Debug.Log(gameData.IsBrushMoving);
+
     }
     private void Subscribe (){
         EventsManager.Instance.OnBrushStartedMoving += HandleBrushSound;
@@ -141,7 +140,7 @@ public class SoundFXManager : MonoBehaviour
     {   
         int SoundIndex;
         PlayContinuousRandomSoundFromArrayFX(WashingBrushSounds, transform, 2, out SoundIndex);
-        yield return new WaitUntil(() => !BrushMovement.IsBrushMoving || !soundDataMap.ContainsKey(SoundIndex));
+        yield return new WaitUntil(() => !BrushMovement.isBrushMovingOverSpeedTreshold || !soundDataMap.ContainsKey(SoundIndex));
         StopPlaySoundFXClip(SoundIndex);
     }
 

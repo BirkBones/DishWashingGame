@@ -15,6 +15,8 @@ public class BrushMovement : MonoBehaviour
     private LayerMask dishMask; //What is considered a dish?
 
     public static bool IsBrushMoving { get; private set; } = false;
+    public static bool isBrushMovingOverSpeedTreshold { get; private set; } = false;
+    public float MovingSpeedSoundBorder = 0.1f;
     [SerializeField] GameData gameData;
 
     public event Action<bool> OnBrushMovementToggled; // if the new movement is that the brush has speed, input = true. if the new movement is that the brush 
@@ -36,13 +38,13 @@ public class BrushMovement : MonoBehaviour
             Vector2 CurrentCursorMovementDirection = Mouse.current.position.ReadValue() - LastCursorPosition;
             bool IsCursorMoving = (CurrentCursorMovementDirection != Vector2.zero);
             CursorRay = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-            // Debug.Log("Mouse position is " + Mouse.current.position.ReadValue());
             LastCursorPosition = Mouse.current.position.ReadValue();
+
             bool LastBrushMovingState = IsBrushMoving;
             IsBrushMoving = (IsCursorMoving && (DishesRayHit.collider != null));
-            gameData.IsBrushMoving = IsBrushMoving;
-            // Debug.Log("gamedata.isbrushmoving er " + gameData.IsBrushMoving + "vs originalen " + IsBrushMoving);
-            if (LastBrushMovingState != IsBrushMoving && IsBrushMoving == true){ 
+            isBrushMovingOverSpeedTreshold = IsBrushMoving & (CurrentCursorMovementDirection.magnitude > MovingSpeedSoundBorder);
+
+            if (LastBrushMovingState != IsBrushMoving && isBrushMovingOverSpeedTreshold == true){ 
                 EventsManager.Instance.InvokeOnBrushStartedMoving();
                 
             }

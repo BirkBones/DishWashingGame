@@ -1,9 +1,11 @@
+using System;
 using UnityEngine;
 
 class DishManager : MonoBehaviour { //DishManager manages the dishes. Dishwashingmanager manages EVERYTHING relevant for dishwashing. (including dishmanager)
     int totalDishes;
-    Transform activeDishPosition;
-    Transform nextDishPlacement;
+    Transform activeDishPlacement;
+    Transform nextCleanDishPlacement;
+    Transform dirtyDishPlacement;
     float BaseDishCleaningAmount;
     [SerializeField] private GameObject[] DishTypes;
     Dish[] dishes;
@@ -15,27 +17,29 @@ class DishManager : MonoBehaviour { //DishManager manages the dishes. Dishwashin
         totalDishes = _totalDishes;
         dishes = new Dish[_totalDishes];
         for (int i = 0; i < totalDishes; i++){
-            dishTypeIndex = Random.Range(0,DishTypes.Length-1);
-            cleaningAmount = Random.Range(BaseDishCleaningAmount, 2*BaseDishCleaningAmount);
-            dishes[i] = new Dish(activeDishPosition, DishTypes[dishTypeIndex], cleaningAmount);
+            dishTypeIndex = UnityEngine.Random.Range(0,DishTypes.Length-1);
+            cleaningAmount = UnityEngine.Random.Range(BaseDishCleaningAmount, 2*BaseDishCleaningAmount);
+            dishes[i] = new Dish(GetNextDirtyposition(), DishTypes[dishTypeIndex], cleaningAmount);
             Instantiate(dishes[i].DishInstance, dishes[i].DishInstance.transform.position, dishes[i].DishInstance.transform.rotation);
 
         }
         
 
     }
-
+    private Transform GetNextDirtyposition (){
+        return dirtyDishPlacement;
+    }
     public void MoveToNextDish(){
-        dishes[CurrentDishIndex].ChangeTransform(nextDishPlacement);
+        dishes[CurrentDishIndex].ChangeTransform(nextCleanDishPlacement);
         CurrentDishIndex++;
-        dishes[CurrentDishIndex].ChangeTransform(activeDishPosition);
+        dishes[CurrentDishIndex].ChangeTransform(activeDishPlacement);
         // Instantiate(dishes[CurrentDishIndex].DishInstance, dishes[CurrentDishIndex].DishInstance.transform.position, dishes[CurrentDishIndex].DishInstance.transform.rotation);
     }
 
     public void UpdateLogic(){
         if (dishes[CurrentDishIndex].IsClean()){
             MoveToNextDish();
-        }
+        }   
 
 
     }
@@ -49,6 +53,7 @@ class DishManager : MonoBehaviour { //DishManager manages the dishes. Dishwashin
 
 class Dish
 {
+    public event Action<double> OnCleanedDish; //upon cleaning the dish, the event will be triggered, also providing how dirty the dish was.
     public float CleaningProgress { get; private set; } = 0f; // 0 = dirty, 1 = clean
     private float cleaningAmount;
     public GameObject DishInstance;
@@ -72,6 +77,9 @@ class Dish
 
     public bool IsClean()
     {
+        if (CleaningProgress >= cleaningAmount){
+            OnCleanedDish?.Invoke(cleaningAmount);
+        }
         return (CleaningProgress >= cleaningAmount);
     }
 }

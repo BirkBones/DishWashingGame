@@ -1610,6 +1610,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   WashingBrush: {fileID: 1502290357}
+  MovingSpeedSoundBorder: 0.5
   gameData: {fileID: 11400000, guid: bf09b58abd6f53146ac7351535f1d157, type: 2}
 --- !u!1001 &6626652488006621274
 PrefabInstance:
