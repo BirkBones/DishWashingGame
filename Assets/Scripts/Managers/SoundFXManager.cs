@@ -1,67 +1,159 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.Mathematics;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Xml.Serialization;
 using UnityEngine;
+using System.Linq;
+using System.Threading.Tasks;
 
-struct Routines {
-    
-};
 
 public class SoundFXManager : MonoBehaviour
 {
     public static SoundFXManager Instance;
     [SerializeField] private AudioSource soundFXObject;
-    
-    static int AmountOfSounds = 100;
+    [SerializeField] AudioClip[] WashingBrushSounds;
+    [SerializeField] GameData gameData;
 
-    public Coroutine[] SoundRoutines; // Let each index correspond to a certan coroutine for a certain sound. 
+    private Dictionary<int, SoundData> soundDataMap = new Dictionary<int, SoundData>();
+    private Queue<int> availableSoundIndices = new Queue<int>();
+    private int nextIndex = 0;
 
-    public bool[] SoundPlaying;
-
-    private bool[] cancelSound; // Track cancellation flags
-
-    // Just so we can more easily instantiate an audiosource later (less code).
-    // Also, since the audiosource is copied, all settings will be transferred from
-    // the original to the copy.
     void Awake() {
     if (Instance == null) {
         Instance = this;
+        Subscribe();
+        }
+    }
+    void Update (){
+        Debug.Log(gameData.name);
+        Debug.Log(gameData.IsBrushMoving);
+    }
+    private void Subscribe (){
+        EventsManager.Instance.OnBrushStartedMoving += HandleBrushSound;
     }
 
-    if (SoundRoutines == null || SoundRoutines.Length < AmountOfSounds) { //dont want to overwrite values if we call soundfxmanager from a different script.
-        SoundRoutines = new Coroutine[AmountOfSounds];
+
+    private int GetNextAvailableSoundIndex()
+    {
+        if (availableSoundIndices.Count > 0)
+        {
+            return availableSoundIndices.Dequeue();
+        }
+        return nextIndex++;
     }
 
-    if (SoundPlaying == null || SoundPlaying.Length < AmountOfSounds) {
-        SoundPlaying = new bool[AmountOfSounds];
+    private void RecycleSoundIndex(int soundIndex)
+    {
+        availableSoundIndices.Enqueue(soundIndex);
     }
-    if (cancelSound == null || cancelSound.Length < AmountOfSounds){
-        cancelSound = new bool[AmountOfSounds];
-    }
-}
 
-public IEnumerator PlaySoundFXClip(AudioClip audioClip, Transform audioLocation, float Volume, int SoundIndex)
+     AudioClip ChooseRandomSoundFromArray(AudioClip[] soundArray, out int RandomSoundIndex){
+        RandomSoundIndex = Random.Range(0,soundArray.Length);
+        AudioClip randomSound = soundArray[RandomSoundIndex];
+        return randomSound;
+
+    }
+
+    public void StopPlaySoundFXClip(int SoundIndex)
+    {
+        soundDataMap[SoundIndex].CancelSound = true;
+    }
+    public void PlaySoundFXClip(AudioClip audioClip, Transform audioLocation, float Volume, out int GeneratedSoundIndex){
+        SoundData inst = new SoundData(true,false);
+        int SoundIndex = GetNextAvailableSoundIndex();
+        GeneratedSoundIndex = SoundIndex;
+        soundDataMap.Add(SoundIndex,inst);
+        StartCoroutine(PlaySoundFXClipCoroutine(audioClip, audioLocation, Volume, SoundIndex));
+
+    }
+
+    public IEnumerator PlaySoundFXClipCoroutine(AudioClip audioClip, Transform audioLocation, float Volume, int SoundIndex)
+    {
+        AudioSource audioSource = Instantiate(soundFXObject, audioLocation.position, Quaternion.identity);
+        audioSource.clip = audioClip;
+        audioSource.volume = Volume;
+        audioSource.Play();
+
+        yield return new WaitUntil(() => !audioSource.isPlaying || soundDataMap[SoundIndex].CancelSound);
+
+        Destroy(audioSource.gameObject);
+        soundDataMap.Remove(SoundIndex);
+        RecycleSoundIndex(SoundIndex);
+    }
+
+    public void PlayContinuousRandomSoundFromArrayFX(AudioClip[] soundArray, Transform audioLocation, float volume, out int GeneratedSoundIndex){
+        SoundData inst = new SoundData(true,false);
+        int SoundIndex = GetNextAvailableSoundIndex();
+        GeneratedSoundIndex = SoundIndex;
+        soundDataMap.Add(SoundIndex,inst);
+        StartCoroutine(PlayContinuousRandomSoundFromArrayFXCoroutine(soundArray, audioLocation, volume, SoundIndex));
+    }
+    public IEnumerator PlayContinuousRandomSoundFromArrayFXCoroutine(AudioClip[] soundArray, Transform audioLocation, float volume, int SoundIndex)
 {
-    SoundPlaying[SoundIndex] = true;
-    cancelSound[SoundIndex] = false;
+    AudioSource audioSource = Instantiate(soundFXObject, audioLocation.position, Quaternion.identity);
+    while (!soundDataMap[SoundIndex].CancelSound) 
+    {
+        AudioClip currentClip = ChooseRandomSoundFromArray(soundArray, out _);
+        audioSource.clip = currentClip;
+        audioSource.volume = volume;
+        audioSource.Play();
 
-    AudioSource audioSource = Instantiate(soundFXObject, audioLocation.position, quaternion.identity);
-    audioSource.clip = audioClip;
-    audioSource.volume = Volume;
-    audioSource.Play();
+        yield return new WaitUntil(() => soundDataMap[SoundIndex].CancelSound || !audioSource.isPlaying);
 
-    yield return new WaitUntil(() => !audioSource.isPlaying || cancelSound[SoundIndex]);
-
-    Destroy(audioSource.gameObject);
-    cancelSound[SoundIndex] = false;
-    SoundPlaying[SoundIndex] = false;
-}
-
-public void StopPlaySoundFXClip(int SoundIndex)
-{
-    cancelSound[SoundIndex] = true; // Signal the coroutine to stop
-}
-
+    }
+        Destroy(audioSource.gameObject);
+        soundDataMap.Remove(SoundIndex);
+        RecycleSoundIndex(SoundIndex);
     
+}
+    public void PlayContinuousSoundFX(AudioClip audioClip, Transform audioLocation, float volume, out int GeneratedSoundIndex){
+        SoundData inst = new SoundData(true,false);
+        int SoundIndex = GetNextAvailableSoundIndex();
+        GeneratedSoundIndex = SoundIndex;
+        soundDataMap.Add(SoundIndex,inst);
+        StartCoroutine(PlayContinuousSoundFXCoroutine(audioClip, audioLocation, volume, SoundIndex));
+    }
 
+    public IEnumerator PlayContinuousSoundFXCoroutine(AudioClip audioClip, Transform audioLocation, float volume, int SoundIndex)
+    {
+        AudioSource audioSource = Instantiate(soundFXObject, audioLocation.position, Quaternion.identity);
+
+        while (!soundDataMap[SoundIndex].CancelSound)
+        {
+            audioSource.clip = audioClip;
+            audioSource.volume = volume;
+            audioSource.Play();
+
+            yield return new WaitUntil(() => !audioSource.isPlaying || soundDataMap[SoundIndex].CancelSound);
+
+        }
+        Destroy(audioSource.gameObject);
+        soundDataMap.Remove(SoundIndex);
+        RecycleSoundIndex(SoundIndex);
+    }
+
+    public void HandleBrushSound()
+    {
+        StartCoroutine(HandleBrushSoundCoroutine());
+    }
+
+    private IEnumerator HandleBrushSoundCoroutine()
+    {   
+        int SoundIndex;
+        PlayContinuousRandomSoundFromArrayFX(WashingBrushSounds, transform, 2, out SoundIndex);
+        yield return new WaitUntil(() => !BrushMovement.IsBrushMoving || !soundDataMap.ContainsKey(SoundIndex));
+        StopPlaySoundFXClip(SoundIndex);
+    }
+
+
+}
+
+public class SoundData
+{
+    public bool IsPlaying;
+    public bool CancelSound;
+    public SoundData(bool _isPlaying, bool _cancelSound){
+        IsPlaying = _isPlaying;
+        CancelSound = _cancelSound;
+    }
 }
