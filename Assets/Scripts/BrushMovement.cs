@@ -56,7 +56,8 @@ public class BrushMovement : MonoBehaviour
     void MovementLogic(){
         if  (Physics.Raycast(CursorRay, out DishesRayHit,  MaxDistance, dishMask)){
                 WashingBrush.position = DishesRayHit.point;
-                // Debug.Log("posisjonen ble " + WashingBrush.position);                
+                // Debug.Log("posisjonen ble " + WashingBrush.position);   
+                Debug.Log(DishesRayHit.transform);        
             }
         UpdateBrushOrientation();
 
