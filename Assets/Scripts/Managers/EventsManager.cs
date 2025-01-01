@@ -9,8 +9,6 @@ public class EventsManager : MonoBehaviour
     public event Action OnBrushStartedMoving;
     public event Action OnPlateFinished;
 
-    public event Action<bool> PlayBrushingSound;
-
     void Awake() {
         if (Instance == null){
             Instance = this;

@@ -6,9 +6,9 @@ using UnityEngine;
 using System.Linq;
 using System.Threading.Tasks;
 
-
+//Handles all sounds that have location
 public class SoundFXManager : MonoBehaviour
-{
+{   
     public static SoundFXManager Instance;
     [SerializeField] private AudioSource soundFXObject;
     [SerializeField] AudioClip[] WashingBrushSounds;
