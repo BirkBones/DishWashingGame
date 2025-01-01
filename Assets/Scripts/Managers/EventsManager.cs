@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using UnityEngine.UI;
 
 //nyttig for decoupling :)
 public class EventsManager : MonoBehaviour
@@ -8,6 +9,7 @@ public class EventsManager : MonoBehaviour
 
     public event Action OnBrushStartedMoving;
     public event Action OnPlateFinished;
+    public event Action<float> OnDishBecomesCleaner;
 
     void Awake() {
         if (Instance == null){
@@ -19,6 +21,10 @@ public class EventsManager : MonoBehaviour
 
     public void InvokeOnBrushStartedMoving(){
         OnBrushStartedMoving?.Invoke();
+    }
+
+    public void InvokeOnDishBecomeCleaner(float val){
+        OnDishBecomesCleaner?.Invoke(val);
     }
 
 }

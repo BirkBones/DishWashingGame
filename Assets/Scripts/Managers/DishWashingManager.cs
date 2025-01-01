@@ -63,10 +63,15 @@ public class DishWashingManager : MonoBehaviour
 
     public void CleanCurrentDish (){
         StartCoroutine(CleanCurrentDishCoroutine());
+
+        
     }
     public IEnumerator CleanCurrentDishCoroutine(){
+        float cleaningIncrease;
             while (BrushMovement.isBrushMovingOverSpeedTreshold && !dishes[CurrentDishIndex].IsClean()){
-                dishes[CurrentDishIndex].Clean(Time.deltaTime);     
+                cleaningIncrease = Time.deltaTime;
+                dishes[CurrentDishIndex].Clean(cleaningIncrease);
+                EventsManager.Instance.InvokeOnDishBecomeCleaner(dishes[CurrentDishIndex].CleaningProgress);
                 yield return null;       
             }
         }
@@ -110,16 +115,17 @@ class Dish
 
     public void Clean(float cleaningIncrease)
     {
-        CleaningProgress += cleaningIncrease;
-        CleaningProgress = Mathf.Clamp(CleaningProgress,0,cleaningAmount); // Ensure it stays between 0 and 1
+        CleaningProgress += cleaningIncrease / cleaningAmount;
+        CleaningProgress = Mathf.Clamp(CleaningProgress,0,1); // Ensure it stays between 0 and 1
         IsClean();
+
     }
 
     public bool IsClean()
     {
-        if (CleaningProgress >= cleaningAmount){
+        if (CleaningProgress >= 1){
             OnCleanedDish?.Invoke(cleaningAmount);
         }
-        return (CleaningProgress >= cleaningAmount);
+        return (CleaningProgress >= 1);
     }
 }

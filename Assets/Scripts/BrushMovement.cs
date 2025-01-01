@@ -26,6 +26,9 @@ public class BrushMovement : MonoBehaviour
         dishMask = LayerMask.GetMask("ActiveDirtyDishes");
 
     }
+    void OnDisable(){
+        isBrushMovingOverSpeedTreshold = false;
+    }
 
     void FixedUpdate()
     {

@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -13,22 +15,25 @@ public class UIManager : MonoBehaviour
     [SerializeField] Button QuitButton;
     [SerializeField] Button SettingsButton;
     [SerializeField] Button BackButton;
-    [SerializeField] Slider MasterVolume;
-    [SerializeField] Slider SoundFXVolume;
-    [SerializeField] Slider MusicVolume;
+    [SerializeField] Slider ProgressBar;
+
+    BrushMovement brush;
     PlayerInput playerInput;
     private bool GameHasStarted = false;
     private int BackGroundMusicIndex;
     void Awake(){
         
         playerInput = FindAnyObjectByType<PlayerInput>();
+        brush = FindAnyObjectByType<BrushMovement>();
 
     }
+
     void OnEnable(){
         brushScript.enabled = false;
         settings.SetActive(false);
         Startingmenu.SetActive(true);
-        
+        ProgressBar.gameObject.SetActive(false);
+    
         StartButton.onClick.AddListener(PlayGame);
         QuitButton.onClick.AddListener(QuitGame);
         SettingsButton.onClick.AddListener(ToggleSettings);
@@ -41,11 +46,22 @@ public class UIManager : MonoBehaviour
     void Update(){
 
     }
+
+    void Start (){
+        Subscribe();
+    }
+
+    void Subscribe(){
+        EventsManager.Instance.OnDishBecomesCleaner += UpdateProgressBar;
+
+    }
     private void PlayGame(){
         brushScript.enabled = true;
         GameHasStarted = true;
         Startingmenu.SetActive(false);
         MusicManager.Instance.StopBackgroundMusic(BackGroundMusicIndex);
+        ProgressBar.gameObject.SetActive(true);
+
     }
     private void QuitGame(){
         Application.Quit();
@@ -54,5 +70,11 @@ public class UIManager : MonoBehaviour
         settings.SetActive(!settings.activeSelf); // toggle settings menu.
         Startingmenu.SetActive(!(GameHasStarted || settings.activeSelf)); //if game has not started, and settings menu is not active, reactivate the starting menu. 
         brushScript.enabled = !(settings.activeSelf || Startingmenu.activeSelf); //disable the brush movement correctly
+        ProgressBar.gameObject.SetActive(!settings.activeSelf);
+
+    }
+    private void UpdateProgressBar(float val){
+        val = Mathf.Clamp01(val);
+        ProgressBar.value = val;
     }
 }
