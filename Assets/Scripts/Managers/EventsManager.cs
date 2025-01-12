@@ -10,6 +10,8 @@ public class EventsManager : MonoBehaviour
     public event Action OnBrushStartedMoving;
     public event Action OnPlateFinished;
     public event Action<float> OnDishBecomesCleaner;
+    public event Action<RaycastHit, Texture2D> UpdateTexture;
+
 
     void Awake() {
         if (Instance == null){
@@ -25,6 +27,10 @@ public class EventsManager : MonoBehaviour
 
     public void InvokeOnDishBecomeCleaner(float val){
         OnDishBecomesCleaner?.Invoke(val);
+    }
+
+    public void InvokeOnRaycasthit(RaycastHit hit, Texture2D texture){
+        UpdateTexture?.Invoke(hit, texture);
     }
 
 }

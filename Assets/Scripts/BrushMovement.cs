@@ -17,14 +17,19 @@ public class BrushMovement : MonoBehaviour
     public static bool IsBrushMoving { get; private set; } = false;
     public static bool isBrushMovingOverSpeedTreshold { get; private set; } = false;
     public float MovingSpeedSoundBorder = 0.1f;
+    public Texture2D currentBrushTexture;
     [SerializeField] GameData gameData;
 
     public event Action<bool> OnBrushMovementToggled; // if the new movement is that the brush has speed, input = true. if the new movement is that the brush 
     // no longer has speed, input = false
 
+    DishRendering dishrenderer;
     void Start(){
         dishMask = LayerMask.GetMask("ActiveDirtyDishes");
 
+    }
+    void Awake (){
+        dishrenderer = GetComponent<DishRendering>();
     }
     void OnDisable(){
         isBrushMovingOverSpeedTreshold = false;
@@ -49,7 +54,6 @@ public class BrushMovement : MonoBehaviour
 
             if (LastBrushMovingState != IsBrushMoving && isBrushMovingOverSpeedTreshold == true){ 
                 EventsManager.Instance.InvokeOnBrushStartedMoving();
-                
             }
 
         } 
@@ -59,8 +63,9 @@ public class BrushMovement : MonoBehaviour
     void MovementLogic(){
         if  (Physics.Raycast(CursorRay, out DishesRayHit,  MaxDistance, dishMask)){
                 WashingBrush.position = DishesRayHit.point;
-                // Debug.Log("posisjonen ble " + WashingBrush.position);   
-                Debug.Log(DishesRayHit.transform);        
+                if (IsBrushMoving){  
+                    EventsManager.Instance.InvokeOnRaycasthit(DishesRayHit, currentBrushTexture);
+                }
             }
         UpdateBrushOrientation();
 
@@ -68,30 +73,7 @@ public class BrushMovement : MonoBehaviour
 
     void UpdateBrushOrientation()
     {
-        // Cast a ray downward from the brush's position
-        // Vector3 brushPosition = WashingBrush.position;
-        // Vector3 rayDirection = Vector3.down; // Assuming the brush is moving above the frying pan
-
-        // if (Physics.Raycast(brushPosition, rayDirection, out DishesRayHit, MaxDistance, dishMask))
-        // {
-        //     // Get the normal of the frying pan surface
-        //     Vector3 hitNormal = DishesRayHit.normal;
-
-        //     // Align the washing brush to the frying pan's surface normal
-        //     // WashingBrush.up = Vector3.up;
-
-        //     // // Optional: Adjust rotation to point forward
-        //     // // Use the hitNormal as the "up" direction, and the brush's forward direction to calculate the final rotation
-        //     // WashingBrush.rotation = Quaternion.LookRotation(WashingBrush.forward, hitNormal); 
-        //     // //Lookrotation takes in a forward vector and an up vector, and creates the rotation that is needed for 
-
-        //     WashingBrush.rotation = Quaternion.FromToRotation(WashingBrush.up, hitNormal);
-
-        //     Debug.Log($"Aligned brush to normal: {hitNormal}");
-        // }
-        // else
-        // {
-        //     Debug.Log("No frying pan detected below the washing brush.");
-        // }
     }
+
+
 }

@@ -9,8 +9,9 @@ public class DishWashingManager : MonoBehaviour
 {   
     //General
     [SerializeField] private int amountOfDishes;
-    [SerializeField] private BrushMovement brush;
+    private BrushMovement brush;
     // Visuals
+    DishRendering dishrenderer;
     [SerializeField] private Slider progressBar;
 
     [SerializeField] Transform activeDishPlacement;
@@ -19,13 +20,15 @@ public class DishWashingManager : MonoBehaviour
     [SerializeField] private GameObject[] DishTypes;
     [SerializeField] float BaseDishCleaningAmount;
     Dish[] dishes;
+
     int CurrentDishIndex = 0;
     public float MovingSpeedSoundBorder {get{return brush.MovingSpeedSoundBorder; } private set { brush.MovingSpeedSoundBorder = value;}}
     
     void Start (){
         brush = GetComponent<BrushMovement>();
+        dishrenderer = GetComponent<DishRendering>();
         InitializeDishesArray(amountOfDishes);
-        MoveToFirstDish();
+        MoveToNextDish(0);
 
     }
     void OnEnable(){
@@ -51,81 +54,54 @@ public class DishWashingManager : MonoBehaviour
             dishTypeIndex = UnityEngine.Random.Range(0,DishTypes.Length); // the last integer of range is not counted in.
             cleaningAmount = UnityEngine.Random.Range(BaseDishCleaningAmount, 2*BaseDishCleaningAmount);
             GameObject dishObject = Instantiate(DishTypes[dishTypeIndex], GetNextDirtyDishposition().position, DishTypes[dishTypeIndex].transform.rotation);
-            dishes[i] = new Dish(GetNextDirtyDishposition(), dishObject, cleaningAmount);
+            dishes[i] = dishObject.GetComponent<Dish>();
         }
         
     }
-
-    private void MoveToFirstDish(){
-        dishes[CurrentDishIndex].ChangeTransform(activeDishPlacement);
-        dishes[CurrentDishIndex].OnCleanedDish += MoveToNextDish;
-    } 
-
     public void CleanCurrentDish (){
         StartCoroutine(CleanCurrentDishCoroutine());
 
         
     }
+
+    
     public IEnumerator CleanCurrentDishCoroutine(){
-        float cleaningIncrease;
             while (BrushMovement.isBrushMovingOverSpeedTreshold && !dishes[CurrentDishIndex].IsClean()){
-                cleaningIncrease = Time.deltaTime;
-                dishes[CurrentDishIndex].Clean(cleaningIncrease);
-                EventsManager.Instance.InvokeOnDishBecomeCleaner(dishes[CurrentDishIndex].CleaningProgress);
+                EventsManager.Instance.InvokeOnDishBecomeCleaner(dishes[CurrentDishIndex].CleaningProgress); //invoke event that will update the progress bar.
                 yield return null;       
             }
         }
     public void MoveToNextDish(double CleaningAmount){
+        if (CurrentDishIndex == 0 && dishes[CurrentDishIndex].transform.position != activeDishPlacement.position){
+            dishes[CurrentDishIndex].ChangeTransform(activeDishPlacement);
+            dishes[CurrentDishIndex].OnCleanedDish += MoveToNextDish;
+            dishes[CurrentDishIndex].HandleDishBecomeActive();
+            return;
+        }
         dishes[CurrentDishIndex].OnCleanedDish -= MoveToNextDish;
         dishes[CurrentDishIndex].ChangeTransform(nextCleanDishPlacement);
+        dishes[CurrentDishIndex].HandleDishBecomeInactive();
         CurrentDishIndex++;
         dishes[CurrentDishIndex].ChangeTransform(activeDishPlacement);
+        dishes[CurrentDishIndex].HandleDishBecomeActive();
         dishes[CurrentDishIndex].OnCleanedDish += MoveToNextDish;
-
+       
     }
-    void Update (){
-    //     for (int i = 0; i < amountOfDishes; i++){
-    //         if (CurrentDishIndex > 0){
-    //             Debug.Log(CurrentDishIndex);
-    //         }
-    // }
+    void Update(){
+        // Debug.Log("cleaningprogress, startidryt and currentcleaned is equal to " + dishes[CurrentDishIndex].CleaningProgress);
+        // Debug.Log(dishes[CurrentDishIndex].StartDirtyness);
+        //         Debug.Log(dishes[CurrentDishIndex].CurrentCleanedness);
+        Debug.Log(dishes[CurrentDishIndex].CleaningProgress);
+        Debug.Log($"Material name: {dishes[CurrentDishIndex].rend.material.name}");
+
     }
 
 }
 
-class Dish
-{
-    public event Action<double> OnCleanedDish; //upon cleaning the dish, the event will be triggered, also providing how dirty the dish was.
-    public float CleaningProgress { get; private set; } = 0f; // 0 = dirty, 1 = clean
-    private float cleaningAmount;
-    public GameObject DishInstance;
-    public Dish(Transform _startingTransform, GameObject _dishInstance, float _cleaningAmount ){
-            DishInstance = _dishInstance;
-            DishInstance.transform.position = _startingTransform.position;
-            cleaningAmount = _cleaningAmount;
-            
-    }
-
-    public void ChangeTransform(Transform newTransform)
-    {
-        DishInstance.transform.position = newTransform.position;
-        // DishInstance.transform.rotation = newTransform.rotation;
-        // DishInstance.transform.localScale = newTransform.localScale;
-    }
-
-    public void Clean(float cleaningIncrease)
-    {
-        CleaningProgress += cleaningIncrease / cleaningAmount;
-        CleaningProgress = Mathf.Clamp(CleaningProgress,0,1); // Ensure it stays between 0 and 1
-        IsClean();
+public enum WashingState { //used for finding index for given dish state
+        InactiveDirty,
+        BeingWashed,
+        WasJustWashed,
+        InactiveClean
 
     }
-
-    public bool IsClean()
-    {
-        if (CleaningProgress >= 1){
-            OnCleanedDish?.Invoke(cleaningAmount);
-        }
-        return (CleaningProgress >= 1);
-    }
-}
