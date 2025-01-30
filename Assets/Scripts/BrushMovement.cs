@@ -20,16 +20,15 @@ public class BrushMovement : MonoBehaviour
     public Texture2D currentBrushTexture;
     [SerializeField] GameData gameData;
 
+    PlayerInput playerInput;
     public event Action<bool> OnBrushMovementToggled; // if the new movement is that the brush has speed, input = true. if the new movement is that the brush 
     // no longer has speed, input = false
 
-    DishRendering dishrenderer;
-    void Start(){
+    void Awake(){
         dishMask = LayerMask.GetMask("ActiveDirtyDishes");
+        playerInput = FindAnyObjectByType<PlayerInput>();
+        // playerInput.actions["Hold"].performed += CursorLogic;
 
-    }
-    void Awake (){
-        dishrenderer = GetComponent<DishRendering>();
     }
     void OnDisable(){
         isBrushMovingOverSpeedTreshold = false;
@@ -38,15 +37,15 @@ public class BrushMovement : MonoBehaviour
     void FixedUpdate()
     {
        MovementLogic();
-        CursorLogic(); //Sets variables such as WashingMovement, updates Rays.
+       Vector2 screenPos = playerInput.actions["Hold"].ReadValue<Vector2>();
+        CursorLogic(screenPos);
 
     }
-    void CursorLogic(){
-        if (Mouse.current!=null){
-            Vector2 CurrentCursorMovementDirection = Mouse.current.position.ReadValue() - LastCursorPosition;
+    void CursorLogic(Vector2 screenPos){
+            Vector2 CurrentCursorMovementDirection = screenPos - LastCursorPosition;
             bool IsCursorMoving = (CurrentCursorMovementDirection != Vector2.zero);
-            CursorRay = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
-            LastCursorPosition = Mouse.current.position.ReadValue();
+            CursorRay = Camera.main.ScreenPointToRay(screenPos);
+            LastCursorPosition = screenPos;
 
             bool LastBrushMovingState = IsBrushMoving;
             IsBrushMoving = (IsCursorMoving && (DishesRayHit.collider != null));
@@ -54,7 +53,7 @@ public class BrushMovement : MonoBehaviour
 
             if (LastBrushMovingState != IsBrushMoving && isBrushMovingOverSpeedTreshold == true){ 
                 EventsManager.Instance.InvokeOnBrushStartedMoving();
-            }
+            
 
         } 
     }

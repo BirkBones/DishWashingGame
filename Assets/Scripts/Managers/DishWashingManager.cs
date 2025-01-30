@@ -3,31 +3,42 @@ using UnityEngine.UI;
 using System;
 using Unity.VisualScripting;
 using System.Collections;
+using Unity.Mathematics;
+using System.Collections.Generic;
 
 //using System.Numerics;
 public class DishWashingManager : MonoBehaviour
 {   
     //General
-    [SerializeField] private int amountOfDishes;
     private BrushMovement brush;
     // Visuals
-    DishRendering dishrenderer;
     [SerializeField] private Slider progressBar;
 
     [SerializeField] Transform activeDishPlacement;
-    [SerializeField] Transform nextCleanDishPlacement;
+    [SerializeField] Transform activeDishRackPlacement;
    [SerializeField] Transform dirtyDishPlacement;
     [SerializeField] private GameObject[] DishTypes;
-    [SerializeField] float BaseDishCleaningAmount;
-    Dish[] dishes;
+    [SerializeField] private GameObject dishRack;
+    [SerializeField] private List<DishRack> usedDishRacks;
 
-    int CurrentDishIndex = 0;
+    [SerializeField] private Transform kitchenBench;
+
+    [SerializeField] float BaseDishCleaningAmount;
+    List<Dish> dishes;
+    DishRack currentDishRack;
+    Dish currentDish;
+    public int DishSizePopulator = 1; // how many dishes should be added to the dish list each time the function is called.
+    int currentDishIndex = 0;
     public float MovingSpeedSoundBorder {get{return brush.MovingSpeedSoundBorder; } private set { brush.MovingSpeedSoundBorder = value;}}
     
-    void Start (){
+    void Awake (){
         brush = GetComponent<BrushMovement>();
-        dishrenderer = GetComponent<DishRendering>();
-        InitializeDishesArray(amountOfDishes);
+        InitializeDishesArray(DishSizePopulator);
+        currentDishRack = FindObjectsByType<DishRack>(FindObjectsSortMode.None)[0];
+        usedDishRacks = new List<DishRack>();
+
+        MoveToNextDishRack();
+        EventsManager.Instance.OnFullDishRack += MoveToNextDishRack;
         MoveToNextDish(0);
 
     }
@@ -39,22 +50,27 @@ public class DishWashingManager : MonoBehaviour
         EventsManager.Instance.OnBrushStartedMoving -= CleanCurrentDish;
     }
 
+    void ChangeDishRack(){
+        currentDishRack.DishRackInstance.transform.position += Vector3.left * 3;
+        // currentDishRack = Instantiate(DishRack());
+    }
+
     private Transform GetNextDirtyDishposition (){
         return dirtyDishPlacement;
     }
     
-    private Transform GetNextCleanDishPosition(){
-        return nextCleanDishPlacement;
-    }
-    public void InitializeDishesArray(int _totalDishes) {
+    
+    public void InitializeDishesArray(int amountofDishesInitialized) {
         int dishTypeIndex;
         float cleaningAmount;
-        dishes = new Dish[_totalDishes];
-        for (int i = 0; i < amountOfDishes; i++){
+        currentDishIndex = 0;
+        dishes = new List<Dish>(amountofDishesInitialized); //start of with big value for more efficiency
+        for (int i = 0; i < amountofDishesInitialized; i++){
             dishTypeIndex = UnityEngine.Random.Range(0,DishTypes.Length); // the last integer of range is not counted in.
             cleaningAmount = UnityEngine.Random.Range(BaseDishCleaningAmount, 2*BaseDishCleaningAmount);
             GameObject dishObject = Instantiate(DishTypes[dishTypeIndex], GetNextDirtyDishposition().position, DishTypes[dishTypeIndex].transform.rotation);
-            dishes[i] = dishObject.GetComponent<Dish>();
+            Debug.Log(i);
+            dishes.Add(dishObject.GetComponent<Dish>());
         }
         
     }
@@ -66,37 +82,64 @@ public class DishWashingManager : MonoBehaviour
 
     
     public IEnumerator CleanCurrentDishCoroutine(){
-            while (BrushMovement.isBrushMovingOverSpeedTreshold && !dishes[CurrentDishIndex].IsClean()){
-                EventsManager.Instance.InvokeOnDishBecomeCleaner(dishes[CurrentDishIndex].CleaningProgress); //invoke event that will update the progress bar.
+            while (BrushMovement.isBrushMovingOverSpeedTreshold && !dishes[currentDishIndex].IsClean()){
+                EventsManager.Instance.InvokeOnDishBecomeCleaner(dishes[currentDishIndex].CleaningProgress); //invoke event that will update the progress bar.
                 yield return null;       
             }
         }
     public void MoveToNextDish(double CleaningAmount){
-        if (CurrentDishIndex == 0 && dishes[CurrentDishIndex].transform.position != activeDishPlacement.position){
-            dishes[CurrentDishIndex].ChangeTransform(activeDishPlacement);
-            dishes[CurrentDishIndex].OnCleanedDish += MoveToNextDish;
-            dishes[CurrentDishIndex].HandleDishBecomeActive();
-            return;
+        if (currentDishIndex == 0 && !(dishes[0].CleaningProgress >= dishes[0].CleaningStrictness)){
+            dishes[0].ChangeTransform(activeDishPlacement);
+            dishes[0].OnCleanedDish += MoveToNextDish;
+            dishes[0].HandleDishBecomeActive();
         }
-        dishes[CurrentDishIndex].OnCleanedDish -= MoveToNextDish;
-        dishes[CurrentDishIndex].ChangeTransform(nextCleanDishPlacement);
-        dishes[CurrentDishIndex].HandleDishBecomeInactive();
-        CurrentDishIndex++;
-        dishes[CurrentDishIndex].ChangeTransform(activeDishPlacement);
-        dishes[CurrentDishIndex].HandleDishBecomeActive();
-        dishes[CurrentDishIndex].OnCleanedDish += MoveToNextDish;
-       
+        else {
+            dishes[currentDishIndex].OnCleanedDish -= MoveToNextDish;
+            currentDishRack.PlaceDish(dishes[currentDishIndex]);
+            dishes[currentDishIndex].HandleDishBecomeInactive();
+            currentDishIndex++;
+            if (currentDishIndex < dishes.Count){
+                dishes[currentDishIndex].ChangeTransform(activeDishPlacement);
+                dishes[currentDishIndex].HandleDishBecomeActive();
+                dishes[currentDishIndex].OnCleanedDish += MoveToNextDish;
+            }
+            else {
+                InitializeDishesArray(DishSizePopulator);
+                dishes[0].ChangeTransform(activeDishPlacement);
+                dishes[0].OnCleanedDish += MoveToNextDish;
+                dishes[0].HandleDishBecomeActive();
+            }
+        }
     }
-    void Update(){
-        // Debug.Log("cleaningprogress, startidryt and currentcleaned is equal to " + dishes[CurrentDishIndex].CleaningProgress);
-        // Debug.Log(dishes[CurrentDishIndex].StartDirtyness);
-        //         Debug.Log(dishes[CurrentDishIndex].CurrentCleanedness);
-        Debug.Log(dishes[CurrentDishIndex].CleaningProgress);
-        Debug.Log($"Material name: {dishes[CurrentDishIndex].rend.material.name}");
+
+    public void MoveToNextDishRack(Dish dish = null){ //Takes in a dish that did not get space on the previous rack
+    Debug.Log("changing dishracks");
+        if (dish != null){
+            usedDishRacks.Add(currentDishRack);
+            GameObject temprack = Instantiate(dishRack); // instantiate and allocate new dish rack ¨
+            temprack.transform.position = currentDishRack.transform.position;
+            currentDishRack = temprack.GetComponent<DishRack>();
+            currentDishRack.PlaceDish(dish);
+            foreach (DishRack rack in usedDishRacks){ // move all the previous dishracks one to the left. 
+                rack.DishRackInstance.transform.position += kitchenBench.right * (new Vector2(rack.dishRackSize.x, rack.dishRackSize.z).magnitude);
+            }
+        }
+        else {
+            currentDishRack = FindObjectsByType<DishRack>(FindObjectsSortMode.None)[0];
+        }
+        
+        }
+        
+
+
+
+
 
     }
 
-}
+    
+
+
 
 public enum WashingState { //used for finding index for given dish state
         InactiveDirty,

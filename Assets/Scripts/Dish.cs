@@ -3,37 +3,54 @@ using System.Collections;
 using System;
 using System.Collections.Generic;
 using UnityEditor;
-class Dish : MonoBehaviour
+using UnityEngine.InputSystem;
+
+
+public class Dish : MonoBehaviour
 {
     public event Action<double> OnCleanedDish; //upon cleaning the dish, the event will be triggered, also providing how dirty the dish was.
     public GameObject DishInstance; // the 3d model this script is attached to
      public Action<RaycastHit> UpdateTexture; //action that triggers when you should update the texture
     [SerializeField] Material [] materials;
     [SerializeField] Texture2D dirtMaskTextureBase;
-   public  Texture2D dirtMaskTexture;
+   public Texture2D dirtMaskTexture; //Performance improving since the system only uses one memory for the same pic.
     public Renderer rend;
     public float StartDirtyness; // the amount of pixels that were dirty from the beginning
     public float CurrentCleanedness = 0; // the amount of pixels that are cleaned
     public float CleaningProgress => CurrentCleanedness / StartDirtyness; // Expression-bodied property
     public float CleaningStrictness = 0.99f; // Offset in % of what will be considered clean. Aka. for 0.99 99% and over will be accepted and the program will continue to run.
     public float CleaningPixelTreshold = 0.2f;
+    public float cleaningFactor = 0.2f;
+    bool clean = false;
+    public Bounds bounds;
+    public Quaternion rotationOnCleaned;
+    PlayerInput playerInput;
+
     void Awake(){
             DishInstance = gameObject;
             dirtMaskTexture = new Texture2D(dirtMaskTextureBase.width, dirtMaskTextureBase.height); //The next four lines copies dirtmasktexturebase 
             dirtMaskTexture.SetPixels(dirtMaskTextureBase.GetPixels()); // and sets the dirtydishmaterial to the new copy of dirtmasktexture, so that we can change the copy and see visual changes in the scene.
             dirtMaskTexture.Apply();
-            rend = GetComponent<Renderer>();
+            rend = DishInstance.GetComponentsInChildren<Renderer>()[0];
             StartDirtyness = FindDirtyness(dirtMaskTexture); //Initializes the Startdirtyness to be the amount of unclean pixels.
+            bounds = rend.bounds;
+            playerInput = FindAnyObjectByType<PlayerInput>();
+
+            playerInput.actions["Hold"].started += _ => MakeDoneCleaning();
 
     }
+    int i = 0;
     void Update(){
-//         rend.material = materials[1];
-//                 rend.material.SetTexture("DirtMask",dirtMaskTexture);
-// rend.material.SetTexture("DirtMask", dirtMaskTexture);
-        EditorUtility.SetDirty(rend.material);
-        dirtMaskTexture.Apply();
-        Texture2D testTexture = new Texture2D(128, 128);
-rend.material.SetTexture("DirtMask", testTexture);
+        i++;
+        if (i == 10) {
+            dirtMaskTexture.Apply();
+            i = 0;
+        }
+
+
+        rend = DishInstance.GetComponentsInChildren<Renderer>()[0];
+        Vector3 size = rend.bounds.size;
+        // Debug.Log(size);
     }
     public void ChangeTransform(Transform newTransform)
     {
@@ -45,8 +62,8 @@ rend.material.SetTexture("DirtMask", testTexture);
     public bool IsClean()
     {
         if (CleaningProgress >= CleaningStrictness){
+            
             OnCleanedDish?.Invoke(StartDirtyness);
-            Debug.Log("was it cleaned");
         }
         return (CleaningProgress >= CleaningStrictness);
     }
@@ -62,6 +79,18 @@ rend.material.SetTexture("DirtMask", testTexture);
 
     }
 
+    public Bounds GetBounds(){
+        return rend.bounds;
+    }
+
+    public void MakeDoneCleaning(){
+        if (CurrentCleanedness!=0){
+            CurrentCleanedness = StartDirtyness;
+            Debug.Log("Should be done now " + CurrentCleanedness);
+            IsClean();
+
+        }
+    }
     private void CleanPixelAtRaycastHit(RaycastHit hit, Texture2D dirtBrush) //Handles both cleaning the pixel and updating the currrentcleanedness.
     {
         UnityEngine.Vector2 textureCoord = hit.textureCoord;
@@ -81,10 +110,9 @@ rend.material.SetTexture("DirtMask", testTexture);
                 Color pixelFromDirtMaskTexture = dirtMaskTexture.GetPixel(x+pixelXOffset,y+pixelYOffset);
                 wasJustDirty = (pixelFromDirtMaskTexture.g != 0); 
                 dirtMaskTexture.SetPixel(pixelXOffset + x, pixelYOffset + y, 
-                new Color (0, Mathf.Clamp01(pixelFromDirtMaskTexture.g - pixelFromBrushTexture.g*0.05f), 0));
+                new Color (0, Mathf.Clamp01(pixelFromDirtMaskTexture.g - pixelFromBrushTexture.g*cleaningFactor), 0));
                  pixelFromDirtMaskTexture = dirtMaskTexture.GetPixel(x+pixelXOffset,y+pixelYOffset);
                 CurrentCleanedness += ((pixelFromDirtMaskTexture.g == 0) && wasJustDirty) ? 1: 0;
-                
             }
         }
 
@@ -102,6 +130,7 @@ rend.material.SetTexture("DirtMask", testTexture);
         DishInstance.layer = LayerMask.NameToLayer("Default");
         EventsManager.Instance.UpdateTexture -= CleanPixelAtRaycastHit;
         rend.material = materials[(int)WashingState.InactiveClean];
+        Destroy(this);
 
     }
 }

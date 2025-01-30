@@ -11,6 +11,7 @@ public class EventsManager : MonoBehaviour
     public event Action OnPlateFinished;
     public event Action<float> OnDishBecomesCleaner;
     public event Action<RaycastHit, Texture2D> UpdateTexture;
+    public event Action<Dish> OnFullDishRack; //upon a full dishrack, the event will be triggered along with the plate that did not get placed.
 
 
     void Awake() {
@@ -31,6 +32,10 @@ public class EventsManager : MonoBehaviour
 
     public void InvokeOnRaycasthit(RaycastHit hit, Texture2D texture){
         UpdateTexture?.Invoke(hit, texture);
+    }
+
+    public void InvokeOnDishRackBecomeFull(Dish dish){
+        OnFullDishRack?.Invoke(dish);
     }
 
 }
